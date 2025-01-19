@@ -6,7 +6,7 @@ ckpt: model_124M/124M_ckpt.pt
 lr: 0.00005
 batch_size: 64
 epoch: 1
-wandb: False
+
 
 beta: 0.1
 label_smoothing: 0.0
