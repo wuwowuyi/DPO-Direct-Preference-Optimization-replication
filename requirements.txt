@@ -1,0 +1,7 @@
+torch
+numpy
+transformers==4.45.2
+tiktoken
+wandb
+tensorflow
+httpx
