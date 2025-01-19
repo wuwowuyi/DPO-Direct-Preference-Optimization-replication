@@ -1,4 +1,6 @@
 
+My implementation of the [DPO paper](https://arxiv.org/abs/2305.18290), implemented from scratch using Pytorch.
+
 
 GPT2 small model is OpenAI GPT-2 model with 124M parameters, hosted by Hugging face.
 
