@@ -73,7 +73,7 @@ class Policy(nn.Module):
         pad_token_id = self.config['openai_gpt2_pad_token_id']
         attention_mask = torch.ne(query, pad_token_id).to(device=self.config['device'])
         query.masked_fill_(query == pad_token_id, 0)  # see comment in the loss() method.
-        max_context_length = GPT2ModelParams.n_position
+        max_context_length = GPT2ModelParams.n_positions
         logits_scale = 1 / torch.tensor(self.config['task']['temperature'], dtype=torch.float32, device=self.config['device'])
 
         for _ in range(max_length):

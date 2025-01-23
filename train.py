@@ -5,6 +5,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from torch.cuda import nccl
+
 import wandb
 import yaml
 from torch import optim
@@ -67,10 +69,10 @@ def train(config: dict):
             policy_ref_response = policy_ref.sample(queries.clone().to(device), max_length)
             print("\nSamples from the reference policy model:")
             _print_sample(policy_ref_response)
-
-        policy_response = policy.sample(queries.to(device), max_length)
-        print("\nSamples from the policy model:")
-        _print_sample(policy_response)
+        else:
+            policy_response = policy.sample(queries.to(device), max_length)
+            print("\nSamples from the policy model:")
+            _print_sample(policy_response)
 
 
     for i in range(config['epoch']):
@@ -108,8 +110,10 @@ def main():
     with open(args.config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
-    if not torch.cuda.is_available():
-        print("No GPU detected. Must install GPU to run. ")
+    # GPU and communication support
+    support_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and nccl.version() >= (2, 10)
+    if not support_bf16:
+        print("Must install GPUs that support bfloat16.")
         sys.exit(0)
     config['device'] = 'cuda'
 
