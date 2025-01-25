@@ -5,24 +5,28 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.cuda import nccl
-
-import wandb
 import yaml
 from torch import optim
 from tqdm import tqdm
 from transformers import GPT2Tokenizer
 
-from gpt2 import get_model, GPT2ModelParams
+import wandb
+from gpt2 import get_model
 from label import download_labels, LabelBuffer
 from policy import Policy
 
+'''This script is for testing small model on a single GPU. '''
 
 def train(config: dict):
 
     seed = 1337 + config['seed']
     torch.manual_seed(seed)
     np.random.seed(seed)
+
+    if config['wandb_log']:  # wandb logging
+        wandb_project = 'dpo'
+        wandb_run_name = str(int(time.time()))
+        wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
     device = config['device']
 
@@ -33,19 +37,19 @@ def train(config: dict):
     # load model
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     config['openai_gpt2_pad_token_id'] = 50259  # padding token id used in OpenAI's human labelled dataset
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    policy_ref = Policy(get_model(config), tokenizer, config, False)
-    policy_ref.eval()
-    policy_ref.to(device)
+    policy_ref = Policy(get_model(config), tokenizer, config, False, device)
+    policy_ref.lm_model.eval()
+    policy_ref.lm_model.to(device)
 
-    policy = Policy(get_model(config), tokenizer, config, True)
-    policy.train()
-    policy.to(device)
+    policy = Policy(get_model(config), tokenizer, config, True, device)
+    policy.lm_model.train()
+    policy.lm_model.to(device)
 
-    optimizer = optim.Adam(policy.parameters(), lr=config['lr'])
+    optimizer = optim.Adam(policy.lm_model.parameters(), lr=config['lr'])
 
     # training, and evaluation.
-    # train one epoch
     total, batch_size = len(data_buffer), config['batch_size']
 
     def evaluation(before_training: bool = False):
@@ -66,14 +70,13 @@ def train(config: dict):
             print('User preferred query response from training data')
             _print_sample(torch.cat((queries_clone, preferred_response), dim=-1))
 
-            policy_ref_response = policy_ref.sample(queries.clone().to(device), max_length)
+            policy_ref_response = policy_ref.sample(queries.to(device), max_length)
             print("\nSamples from the reference policy model:")
             _print_sample(policy_ref_response)
         else:
             policy_response = policy.sample(queries.to(device), max_length)
             print("\nSamples from the policy model:")
             _print_sample(policy_response)
-
 
     for i in range(config['epoch']):
         evaluation(True)
@@ -91,9 +94,10 @@ def train(config: dict):
             loss.backward()
             optimizer.step()
 
-            wandb.log({
-                "loss": loss,
-            })
+            if config['wandb_log']:
+                wandb.log({
+                    "loss": loss,
+                })
 
         evaluation()
 
@@ -111,20 +115,19 @@ def main():
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
     # GPU and communication support
-    support_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and nccl.version() >= (2, 10)
+    support_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and torch.cuda.nccl.version() >= (2, 10)
     if not support_bf16:
         print("Must install GPUs that support bfloat16.")
         sys.exit(0)
-    config['device'] = 'cuda'
+    config['device'] = 0
 
     config['seed'] = args.seed
+    config['wandb_log'] = args.wandb_log
 
-    if args.wandb_log:  # wandb logging
-        wandb_project = 'dpo'
-        wandb_run_name = str(int(time.time()))
-        wandb.init(project=wandb_project, name=wandb_run_name, config=config)
+    print(config)
 
     train(config)
+
 
 if __name__ == '__main__':
     main()
