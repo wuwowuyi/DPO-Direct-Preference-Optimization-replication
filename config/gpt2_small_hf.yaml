@@ -1,11 +1,20 @@
 
 
 model: gpt2
+dtype: bfloat16
+activation_checkpointing: True
+
+checkpoint_type: FULL_STATE_DICT # SHARDED_STATE_DICT, or FULL_STATE_DICT
+checkpoint_folder: checkpoint
+model_save_name: gpt2
+dist_checkpoint_root_folder: checkpoint
+dist_checkpoint_folder: shard
+save_using_num_threads: 2
 
 lr: 0.00005
 batch_size: 64
 epoch: 1
-
+log_local_loss: True
 
 beta: 0.1
 label_smoothing: 0.0

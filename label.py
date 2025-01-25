@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -23,7 +24,7 @@ def parse_url(url):
         raise Exception(f'Could not parse {url} as an Azure url')
 
 
-def download_file_cached(task: str, cache_dir: str) -> Path:
+def download_file_cached(task: str, cache_dir: str, download: bool = True) -> Path:
     """ Given an Azure path url, caches the contents locally.
         WARNING: only use this function if contents under the path won't change!
         """
@@ -32,19 +33,29 @@ def download_file_cached(task: str, cache_dir: str) -> Path:
     filename = '_'.join(path.rsplit('/')[-2:])  # path is like 'lm-human-preferences/labels/tldr/online_45k.json'
     local_file = Path(cache_dir) / filename
     if not local_file.exists():
-        print(f'Downloading training labels {label_url[task]}')
-        with httpx.stream('GET', label_url[task]) as r, open(local_file, 'wb') as f:
-            for chunk in r.iter_bytes(chunk_size=8192 * 8):
-                f.write(chunk)
+        sentinel = Path(cache_dir) / (filename + '-sentinel')
+        if download:
+            try:
+                open(sentinel, 'w').close()
+                print(f'Downloading training labels {label_url[task]}')
+                with httpx.stream('GET', label_url[task]) as r, open(local_file, 'wb') as f:
+                    for chunk in r.iter_bytes(chunk_size=8192 * 8):
+                        f.write(chunk)
+            finally:
+                if sentinel.exists():
+                    sentinel.unlink()
+        else:  # wait for the main process to download
+            while (not local_file.exists()) or sentinel.exists():
+                time.sleep(1)
 
     return local_file
 
 
-def download_labels(task: str, labels_dir: str = 'datasets/human_label') -> dict[str, torch.Tensor]:
+def download_labels(task: str, labels_dir: str = 'datasets/human_label', download: bool = True) -> dict[str, torch.Tensor]:
     """
     Download human labelled data provided by OpenAI and put into a replay buffer.
     """
-    with open(download_file_cached(task, labels_dir)) as f:
+    with open(download_file_cached(task, labels_dir, download)) as f:
         results = json.load(f)
         print('Num labels found in source:', len(results))
 
