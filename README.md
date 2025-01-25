@@ -1,6 +1,8 @@
 
 My replication of the [DPO paper](https://arxiv.org/abs/2305.18290), implemented from scratch using Pytorch, trained with FSDP. (in progress)
 
+See [my note on the paper](Paper_note.md).
+
 ## Setup
 ### Environment
 * For simplicity, only runs on GPUs that support bfloat16, i.e., Ampere or newer. Alternatively, for GPUs not supporting bfloat16, we can use float16 + torch.amp package (mixed precision) + gradient scaling, which would use more GPU memory though.
@@ -27,7 +29,7 @@ This is a stylistic continuation task, and model is encouraged to generate a **"
 
 Training dataset: OpenAI's sentiment offline_5k.json.
 
-Training hyperparameters: 1 epoch, learning rate 5e-5, sampling temperature 0.7. query length 64, response length 24. 
+Training hyperparameters: 1 epoch, learning rate 5e-5 (unless specified otherwise), sampling temperature 0.7. query length 64, response length 24.
 
 #### GPT2 small
 
@@ -45,4 +47,13 @@ Queries are the same as GPT2 small.
 |This time you have to get over it." "And I want to get over it with you," said D|An interesting man he was." "Well, good for you. He was a good fighter.|
 |When I'd finished, I went to get the rest of the stew.|Ever since we got Wylend, he'd been kind to me. He was always willing to help me cook things|
 |"Ruby, I know you're worried about me. You always have, and I know you want me to be|"Good. That means you're listening." She smiled. "Thank you."|
+
+#### GPT2 XLarge
+Queries are the same as GPT2 small.
+
+| Response before training                                                                                | DPO trained (lr = 2e-5)                                         | DPO trained (lr = 5e-5)                                                                              |
+|---------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| This time you have a chance to have him beaten for the first time in his life." "Yes."                  |An excellent man, and a generous friend. He was good company." "Yes. I always liked him very | An excellent scholar and a very generous man, he was also an able orator.                            |
+| When I'd finished, I went to get the rest of the menu. Everyone else, including the waiter, was waiting |Ever since I'd gotten my powers, I'd been looking for ways to use them. I'd worked hard to master| Ever since I was young, I'd held a dream of becoming a great chef. I'd always worked hard to achieve |
+| "If you do, then I'll have to put you down." Ruby said. "What?"                                         |"I will do my best, Ruby." He said. He was happy to see that she was smiling.| "I don't mind being that way, as long as you're happy." "We're happy, son."                          |
 

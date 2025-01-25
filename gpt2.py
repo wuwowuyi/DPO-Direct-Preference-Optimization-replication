@@ -21,10 +21,17 @@ class GPT2LargeModelParams(GPT2ModelParams):
     n_head: int = 20
     n_embd: int = 1280
 
+@dataclass
+class GPT2XLargeModelParams(GPT2ModelParams):
+    n_layer: int = 48
+    n_head: int = 25
+    n_embd: int = 1600
+
 
 model_param = {
     'gpt2': GPT2ModelParams,
-    'gpt2-large': GPT2LargeModelParams
+    'gpt2-large': GPT2LargeModelParams,
+    'gpt2-xl': GPT2XLargeModelParams
 }
 
 

@@ -3,6 +3,8 @@ from datetime import datetime
 import torch
 import time
 
+'''code from Pytorch FSDP example https://github.com/pytorch/examples/blob/main/distributed/FSDP/model_checkpointing/checkpoint_handler.py '''
+
 from torch.distributed.fsdp import (
     FullyShardedDataParallel as FSDP,
     StateDictType,
@@ -104,7 +106,7 @@ def save_model_and_optimizer_sharded(model, rank, cfg, optim=None, verbose=True)
         if optim is not None:
             state_dict["optim"] = FSDP.optim_state_dict(model, optim)
 
-        dist_cp.save_state_dict(
+        dist_cp.save(
             state_dict=state_dict,
             storage_writer=distributed_writer,
             planner=DefaultSavePlanner(),
