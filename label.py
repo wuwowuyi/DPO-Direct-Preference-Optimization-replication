@@ -12,7 +12,9 @@ label_url = {
     'sentiment': 'https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/sentiment/offline_5k.json',
     'descriptiveness': 'https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/descriptiveness/offline_5k.json',
     'tldr': 'https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/tldr/online_45k.json',
-    'cnndm': 'https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/cnndm/online_45k.json'
+    'tldr60k': 'https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/tldr/offline_60k.json',
+    'cnndm': 'https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/cnndm/online_45k.json',
+    'cnndm60k': 'https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/cnndm/offline_60k.json'
 }
 
 def parse_url(url):
@@ -24,12 +26,12 @@ def parse_url(url):
         raise Exception(f'Could not parse {url} as an Azure url')
 
 
-def download_file_cached(task: str, cache_dir: str, download: bool = True) -> Path:
+def download_file_cached(task_label: str, cache_dir: str, download: bool = True) -> Path:
     """ Given an Azure path url, caches the contents locally.
         WARNING: only use this function if contents under the path won't change!
         """
-    assert task in label_url, f"task {task} is not supported"
-    path = parse_url(label_url[task])
+    assert task_label in label_url, f"task {task_label} is not available to download"
+    path = parse_url(label_url[task_label])
     filename = '_'.join(path.rsplit('/')[-2:])  # path is like 'lm-human-preferences/labels/tldr/online_45k.json'
     local_file = Path(cache_dir) / filename
     if not local_file.exists():
@@ -37,8 +39,8 @@ def download_file_cached(task: str, cache_dir: str, download: bool = True) -> Pa
         if download:
             try:
                 open(sentinel, 'w').close()
-                print(f'Downloading training labels {label_url[task]}')
-                with httpx.stream('GET', label_url[task]) as r, open(local_file, 'wb') as f:
+                print(f'Downloading training labels {label_url[task_label]}')
+                with httpx.stream('GET', label_url[task_label]) as r, open(local_file, 'wb') as f:
                     for chunk in r.iter_bytes(chunk_size=8192 * 8):
                         f.write(chunk)
             finally:

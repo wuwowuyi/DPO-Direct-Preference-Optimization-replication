@@ -31,7 +31,8 @@ def train(config: dict):
     device = config['device']
 
     # prepare human labelled data
-    labels = download_labels(config['task']['name'])
+    task = config['task']
+    labels = download_labels(config[task]['label'])
     data_buffer = LabelBuffer(labels)
 
     # load model
@@ -39,18 +40,18 @@ def train(config: dict):
     config['openai_gpt2_pad_token_id'] = 50259  # padding token id used in OpenAI's human labelled dataset
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    policy_ref = Policy(get_model(config), tokenizer, config, False, device)
+    policy_ref = Policy(get_model(config), tokenizer, config, False, device, task)
     policy_ref.lm_model.eval()
     policy_ref.lm_model.to(device)
 
-    policy = Policy(get_model(config), tokenizer, config, True, device)
+    policy = Policy(get_model(config), tokenizer, config, True, device, task)
     policy.lm_model.train()
     policy.lm_model.to(device)
 
-    optimizer = optim.Adam(policy.lm_model.parameters(), lr=config['lr'])
+    optimizer = optim.Adam(policy.lm_model.parameters(), lr=config[task]['lr'])
 
     # training, and evaluation.
-    total, batch_size = len(data_buffer), config['batch_size']
+    total, batch_size = len(data_buffer), config[task]['batch_size']
 
     def evaluation(before_training: bool = False):
         def _print_sample(samples: torch.Tensor):
@@ -59,13 +60,13 @@ def train(config: dict):
                 print(tokenizer.decode(s))
 
         queries, preferred_response = data_buffer.get_eval_query_response()
-        max_length = config['task']['response_length']
+        max_length = config[task]['response_length']
 
         if before_training:
             queries_clone = queries.clone()
             pad_token_id = config['openai_gpt2_pad_token_id']
-            queries_clone.masked_fill_(queries == pad_token_id, 220)  # 220 is empty space ' '
-            preferred_response.masked_fill_(preferred_response == pad_token_id, 220)
+            queries_clone.masked_fill_(queries == pad_token_id, tokenizer.eos_token_id)
+            preferred_response.masked_fill_(preferred_response == pad_token_id, tokenizer.eos_token_id)
             print("*" * 50)
             print('User preferred query response from training data')
             _print_sample(torch.cat((queries_clone, preferred_response), dim=-1))
@@ -78,7 +79,7 @@ def train(config: dict):
             print("\nSamples from the policy model:")
             _print_sample(policy_response)
 
-    for i in range(config['epoch']):
+    for i in range(config[task]['epoch']):
         evaluation(True)
 
         print(f'Start training epoch {i}')
@@ -105,6 +106,7 @@ def train(config: dict):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", "-cfg", type=str, required=True)
+    parser.add_argument("--task", type=str, default="sentiment")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--wandb_log", action="store_true")
     args = parser.parse_args()
@@ -123,6 +125,7 @@ def main():
 
     config['seed'] = args.seed
     config['wandb_log'] = args.wandb_log
+    config['task'] = args.task
 
     print(config)
 

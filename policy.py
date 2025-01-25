@@ -14,12 +14,14 @@ class Policy:
             config: dict,
             train: bool,
             device: int = 0,  # index of current device
+            task: str = 'sentiment'  # name of task
     ):
         super().__init__()
         self.lm_model = lm_model
         self.tokenizer = tokenizer
         self.config = config
         self.device = device
+        self.task = task
 
         if not train:
             for param in self.lm_model.parameters():
@@ -30,7 +32,7 @@ class Policy:
         :param input_ids: shape=(batch_size * 2, query_length + response_length)
         :return:
         """
-        query_length = self.config['task']['query_length']
+        query_length = self.config[self.task]['query_length']
         input_token = input_ids[:, :-1].clone()  # shape=(batch_size * 2, query_length + response_length - 1)
         label = input_ids[:, query_length:].clone()  # shape=(batch_size * 2, response_length)
 
@@ -73,7 +75,7 @@ class Policy:
         attention_mask = torch.ne(query, pad_token_id).to(device=self.device)
         query.masked_fill_(query == pad_token_id, self.tokenizer.pad_token_id)
         max_context_length = GPT2ModelParams.n_positions
-        logits_scale = 1 / torch.tensor(self.config['task']['temperature'], dtype=torch.bfloat16, device=self.device)
+        logits_scale = 1 / torch.tensor(self.config[self.task]['temperature'], dtype=torch.bfloat16, device=self.device)
 
         for _ in range(max_length):
             logits = self.lm_model(query, attention_mask=attention_mask).logits
