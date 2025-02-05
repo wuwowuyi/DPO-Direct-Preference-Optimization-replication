@@ -29,6 +29,9 @@ from label import LabelBuffer, download_labels
 from policy import Policy
 
 
+'''Train models on multiple GPUs using FSDP. '''
+
+
 def setup():
     # initialize the process group
     distributed.init_process_group("nccl")
@@ -63,7 +66,8 @@ def train(config: dict):
         wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
     # prepare human labelled data
-    labels = download_labels(config['task']['name'], download=(local_rank == 0))
+    task = config['task']
+    labels = download_labels(config[task]['label'], download=(local_rank == 0))
     data_buffer = LabelBuffer(labels)
 
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
@@ -81,21 +85,21 @@ def train(config: dict):
                    auto_wrap_policy=gpt2_auto_wrap_policy,
                    mixed_precision=bfSixteen,
                    use_orig_params=True,
-                   device_id=device), tokenizer, config, False, device)
+                   device_id=device), tokenizer, config, False, device, task)
     policy_ref.lm_model.eval()
 
     policy = Policy(FSDP(get_model(config),
                    auto_wrap_policy=gpt2_auto_wrap_policy,
                    mixed_precision=bfSixteen,
                    use_orig_params=True,
-                   device_id=device), tokenizer, config, True, device)
+                   device_id=device), tokenizer, config, True, device, task)
     if 'activation_checkpointing' in config and config['activation_checkpointing']:
         apply_activation_checkpointing(policy.lm_model, check_fn=check_fn)
     policy.lm_model.train()
 
     # prepare training
-    optimizer = optim.Adam(policy.lm_model.parameters(), lr=config['lr'])
-    local_total, local_batch_size = len(data_buffer) // world_size, config['batch_size'] // world_size  # TODO
+    optimizer = optim.Adam(policy.lm_model.parameters(), lr=config[task]['lr'])
+    local_total, local_batch_size = len(data_buffer) // world_size, config[task]['batch_size'] // world_size  # TODO
 
     def evaluation(before_training: bool = False):
         def _print_sample(samples: torch.Tensor):
@@ -103,14 +107,14 @@ def train(config: dict):
                 print(f"\nthe {ith}-th sample:")
                 print(tokenizer.decode(s))
 
-        queries, preferred_response = data_buffer.get_eval_query_response()
-        max_length = config['task']['response_length']
+        queries, preferred_response = data_buffer.get_eval_query_response(10)
+        max_length = config[task]['response_length']
 
         if before_training:
             queries_clone = queries.clone()
             pad_token_id = config['openai_gpt2_pad_token_id']
-            queries_clone.masked_fill_(queries == pad_token_id, 220)  # 220 is empty space ' '
-            preferred_response.masked_fill_(preferred_response == pad_token_id, 220)
+            queries_clone.masked_fill_(queries == pad_token_id, tokenizer.pad_token_id)  # 220 is empty space ' '
+            preferred_response.masked_fill_(preferred_response == pad_token_id, tokenizer.pad_token_id)
             print("*" * 50)
             print('User preferred query response from training data')
             _print_sample(torch.cat((queries_clone, preferred_response), dim=-1))
@@ -123,7 +127,7 @@ def train(config: dict):
             print("\nSamples from the policy model:")
             _print_sample(policy_response)
 
-    for i in range(config['epoch']):
+    for i in range(config[task]['epoch']):
         evaluation(True)
 
         print(f'Start training epoch {i} on rank {rank}')
@@ -168,6 +172,7 @@ def train(config: dict):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", "-cfg", type=str, default="config/gpt2_small_hf.yaml")
+    parser.add_argument("--task", type=str, default="sentiment")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--wandb_log", action="store_true")
     args = parser.parse_args()
@@ -185,6 +190,7 @@ def main():
 
     config['seed'] = args.seed
     config['wandb_log'] = args.wandb_log
+    config['task'] = args.task
 
     print(config)
 

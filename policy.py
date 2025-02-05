@@ -86,4 +86,4 @@ class Policy:
             new_mask = torch.ones_like(next_token, device=self.device)[..., None]
             attention_mask = torch.cat((attention_mask, new_mask), dim=-1)
 
-        return query
+        return query[-max_length:]
