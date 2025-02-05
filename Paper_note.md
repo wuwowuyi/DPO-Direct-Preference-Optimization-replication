@@ -72,11 +72,13 @@ The optimal distribution $\pi^\*$ to maximize
 
 $E_{s \sim \pi(s)}[f(s)]$  such that $D_{KL}(\pi||\pi_{ref}) < \epsilon$, 
 
-where $D_{KL}(\pi||\pi_{ref})$ is the KL-divergence between $\pi$ and a reference distribution $\pi_{ref}$, is: 
+is: 
 
 $\displaystyle \pi^* = \frac{1}{Z}\pi_{ref} \cdot\exp(\frac{1}{\beta}f(s))$
 
-where $\beta$ is the Lagrange multiplier, and $Z$ is a normalizing constant wrt. $s$.
+where:
+- $D_{KL}(\pi||\pi_{ref})$ is the KL-divergence between $\pi$ and a reference distribution $\pi_{ref}$,
+- $\beta$ is the Lagrange multiplier, and $Z$ is a normalizing constant wrt. $s$.
 
 In our case, $f(s)$ is the reward $r(x, y)$, $\pi_{ref} = \pi_{ref}(y|x)$, $\pi = \pi_\phi(y|x)$, and $Z = Z(x)$.
 Rearrange the equation above to have:
