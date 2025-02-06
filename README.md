@@ -1,7 +1,9 @@
 
-My replication of the [DPO paper](https://arxiv.org/abs/2305.18290), implemented from scratch using Pytorch, trained with FSDP. (in progress)
+My replication of the [DPO paper](https://arxiv.org/abs/2305.18290), implemented from scratch using Pytorch, trained with FSDP. 
 
-See [my note on the paper](Paper_note.md).
+The implementation tries to be simple, clean and easy to read. 
+
+See [my note on the paper](Paper_note.md), including a brief summary of OpenAI's RLHF papers.
 
 ## Setup
 ### Environment
@@ -19,7 +21,11 @@ Tested on pretrained GPT-2 models hosted by Hugging Face.
 
 ### Train
 
-To train and log, run for example `torchrun --nnodes 1 --nproc_per_node 2  train_fsdp.py --config_file config/gpt2_small_hf.yaml --wandb_log`
+`train_fsdp.py` is for training with FSDP, for example:<br />
+`torchrun --nnodes 1 --nproc_per_node 2  train_fsdp.py --config_file config/gpt2_small_hf.yaml --task sentiment --wandb_log`
+
+ `train.py` is for testing and debugging on a single GPU, for example,<br />
+ `python train.py --config_file config/gpt2_small_hf.yaml --task sentiment`.
 
 ## Evaluation
 Training datasets are borrowed from [RLHF training](https://github.com/wuwowuyi/Fine-Tuning-Language-Models-from-Human-Preferences-Pytorch-Implementation).
@@ -27,9 +33,11 @@ Training datasets are borrowed from [RLHF training](https://github.com/wuwowuyi/
 ### Sentiment continuation 
 This is a stylistic continuation task, and model is encouraged to generate a **"positive and happy" continuation** of a query which is sampled from a training dataset, like an excerpt from the BookCorpus dataset.
 
-Training dataset: OpenAI's sentiment offline_5k.json.
+Training dataset: [OpenAI's sentiment offline_5k.json](https://openaipublic.blob.core.windows.net/lm-human-preferences/labels/sentiment/offline_5k.json).
 
 Training hyperparameters: 1 epoch, learning rate 5e-5 (unless specified otherwise), sampling temperature 0.7. query length 64, response length 24.
+
+At the end of training, the trained policy is sampled once to generate a response. So the results showing below are not hand-picked, just one random sample. 
 
 #### GPT2 small
 
@@ -51,9 +59,8 @@ Queries are the same as GPT2 small.
 #### GPT2 XLarge
 Queries are the same as GPT2 small.
 
-| Response before training                                                                                | DPO trained (lr = 2e-5)                                         | DPO trained (lr = 5e-5)                                                                              |
-|---------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| This time you have a chance to have him beaten for the first time in his life." "Yes."                  |An excellent man, and a generous friend. He was good company." "Yes. I always liked him very | An excellent scholar and a very generous man, he was also an able orator.                            |
-| When I'd finished, I went to get the rest of the menu. Everyone else, including the waiter, was waiting |Ever since I'd gotten my powers, I'd been looking for ways to use them. I'd worked hard to master| Ever since I was young, I'd held a dream of becoming a great chef. I'd always worked hard to achieve |
-| "If you do, then I'll have to put you down." Ruby said. "What?"                                         |"I will do my best, Ruby." He said. He was happy to see that she was smiling.| "I don't mind being that way, as long as you're happy." "We're happy, son."                          |
-
+| Best response from training data                                           | Policy response before training                                                                         | DPO trained (lr = 2e-5)                                         | DPO trained (lr = 5e-5)                                                                              |
+|----------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| He was the one who would not give up, who would have a great deal to say.  | This time you have a chance to have him beaten for the first time in his life." "Yes."                  |An excellent man, and a generous friend. He was good company." "Yes. I always liked him very | An excellent scholar and a very generous man, he was also an able orator.                            |
+| I would be able to stomach the watered down concoction Wyatt was drinking. | When I'd finished, I went to get the rest of the menu. Everyone else, including the waiter, was waiting |Ever since I'd gotten my powers, I'd been looking for ways to use them. I'd worked hard to master| Ever since I was young, I'd held a dream of becoming a great chef. I'd always worked hard to achieve |
+| "I don't need to be that way. I'm fine." "You're not fine, Sean.           | "If you do, then I'll have to put you down." Ruby said. "What?"                                         |"I will do my best, Ruby." He said. He was happy to see that she was smiling.| "I don't mind being that way, as long as you're happy." "We're happy, son."                          |
